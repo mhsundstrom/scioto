@@ -1,2 +1,4 @@
 .idea/
 scioto.egg-info/
+*.pyc
+

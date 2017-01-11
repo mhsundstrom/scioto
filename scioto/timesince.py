@@ -5,18 +5,24 @@
 """
 import pendulum as dt
 
+__all__ = ['timesince', 'timeuntil']
+
+ATTRIBUTES = ['years', 'months', 'weeks', 'remaining_days',
+              'hours', 'minutes', 'remaining_seconds']
+
 
 def timesince(when, other=None, reversed=False):
     if other is None:
         other = dt.now()
     diff = when - other if reversed else other - when
-    attrs = ['years', 'months', 'weeks', 'remaining_days', 'hours', 'minutes', 'remaining_seconds']
-    values = [getattr(diff, a) for a in attrs]
+    values = [getattr(diff, a) for a in ATTRIBUTES]
     pairs = [
         plurals(value, a)
-        for value, a in zip(values, attrs)
+        for value, a in zip(values, ATTRIBUTES)
         if value > 0
     ]
+    # I want only the first two non-zero values,
+    # and seconds only if the interval is less than one hour.
     if len(pairs) > 2:
         pairs = pairs[:2]
     if diff.total_hours() > 1 and pairs[-1][1].startswith('second'):
