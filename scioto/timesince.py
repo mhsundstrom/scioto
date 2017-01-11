@@ -1,0 +1,38 @@
+""" An updated version based on pendulum and my own preferences.
+    Originally inspired by timesince from Django.
+
+    Requires Python 3.6 or later.
+"""
+import pendulum as dt
+
+
+def timesince(when, other=None, reversed=False):
+    if other is None:
+        other = dt.now()
+    diff = when - other if reversed else other - when
+    attrs = ['years', 'months', 'weeks', 'remaining_days', 'hours', 'minutes', 'remaining_seconds']
+    values = [getattr(diff, a) for a in attrs]
+    pairs = [
+        plurals(value, a)
+        for value, a in zip(values, attrs)
+        if value > 0
+    ]
+    if len(pairs) > 2:
+        pairs = pairs[:2]
+    if diff.total_hours() > 1 and pairs[-1][1].startswith('second'):
+        pairs = pairs[:1]
+    return ', '.join(f"{value} {a}" for value, a in pairs)
+
+
+def timeuntil(when, other=None, reversed=True):
+    return timesince(when, other, reversed)
+
+
+def plurals(value, a):
+    a = a.replace('remaining_', '')
+    a = a[:-1] if value == 1 else a
+    return (value, a)
+
+
+if __name__ == '__main__':
+    print(timeuntil(dt.parse('2017-01-11T04:51:18-05:00')))
