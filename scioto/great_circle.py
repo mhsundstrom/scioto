@@ -6,24 +6,12 @@
     to more closely match the formulas in the book
     and also because I can.
 """
-from functools import singledispatch
 from math import radians, cos, sin, sqrt, atan
 
-from . import Distance
+from .distance import Distance
 
 
-@singledispatch
-def great_circle(point1, point2):
-    """ Calculate the Great Circle distance returning a `Distance`
-    """
-    lon1, lat1 = point1.coordinates
-    lon2, lat2 = point2.coordinates
-    return great_circle(lat1, lon1, lat2, lon2)
-
-
-@great_circle.register(float)
-@great_circle.register(int)
-def _(lat1, lon1, lat2, lon2):
+def great_circle(lat1, lon1, lat2, lon2):
     α = 6378.14  # Equatorial radius, kilometers.
     𝑓 = 1 / 298.257  # Flattening of the Earth.
     φ1, L1, φ2, L2 = map(radians, (lat1, lon1, lat2, lon2))
