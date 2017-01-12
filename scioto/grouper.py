@@ -1,3 +1,4 @@
+""" grouper is from the Itertools Recipes in the Python documentation."""
 from itertools import zip_longest
 
 

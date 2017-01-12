@@ -1,4 +1,4 @@
-# See Python Cookbook, Section 8.10, page 267.
+"""See Python Cookbook, Section 8.10, page 267."""
 
 class lazyproperty:
     def __init__(self, func):
