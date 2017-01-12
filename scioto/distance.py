@@ -52,13 +52,13 @@ class Distance:
         if name == 'radians':
             self.radians = radians = self.km / RADIUS
             return radians
-        raise AttributeError("No attribute named {!r}".format(name))
+        raise AttributeError(f"No attribute named {name!r}")
 
     def __str__(self):
-        return '{0.km:.0f}'.format(self)
+        return f'{self.km:.0f}'
 
     def __repr__(self):
-        return '<{0} {1}>'.format(type(self).__name__, self)
+        return f'<{type(self).__name__} {self}>'
 
     def __eq__(self, other):
         return self.km == other.km
