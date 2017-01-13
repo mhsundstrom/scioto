@@ -1,10 +1,11 @@
 from functools import total_ordering
 
+from .constants import EARTH_EQUATORIAL_RADIUS_KM
+
 # Conversion factors from 1 kilometer.
 ONE_MILE = 1.609344
 ONE_NM = 1.852
 ONE_FOOT = ONE_MILE / 5280
-RADIUS = 6366.71
 
 
 @total_ordering
@@ -32,7 +33,7 @@ class Distance:
             self.km = feet * ONE_FOOT
         elif radians is not None:
             self.radians = radians
-            self.km = RADIUS * radians
+            self.km = EARTH_EQUATORIAL_RADIUS_KM * radians
         else:
             raise ValueError("Enter km, meters, miles, nm, feet, or radians.")
 
@@ -50,12 +51,12 @@ class Distance:
             self.feet = feet = self.km / ONE_FOOT
             return feet
         if name == 'radians':
-            self.radians = radians = self.km / RADIUS
+            self.radians = radians = self.km / EARTH_EQUATORIAL_RADIUS_KM
             return radians
         raise AttributeError(f"No attribute named {name!r}")
 
     def __str__(self):
-        return f'{self.km:.0f}'
+        return f'{self.km:.3f}'
 
     def __repr__(self):
         return f'<{type(self).__name__} {self}>'
@@ -68,5 +69,13 @@ class Distance:
 
 
 if __name__ == '__main__':
-    print(Distance(feet=5281) > Distance(miles=1))
-    print(Distance(km=1) < Distance(miles=1))
+    assert Distance(feet=5281) > Distance(miles=1)
+    assert Distance(km=1) < Distance(miles=1)
+    d = Distance(km=EARTH_EQUATORIAL_RADIUS_KM)
+    print(d)
+    print(d.miles)
+    print(d.km)
+    print(d.nm)
+    print(d.feet)
+    print(d.radians)
+    print(d.meters)

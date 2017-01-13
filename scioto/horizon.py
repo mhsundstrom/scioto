@@ -1,9 +1,11 @@
 from math import sqrt
 from functools import singledispatch
 
-from . import Distance
+from .distance import Distance
+from .constants import EARTH_EQUATORIAL_RADIUS_KM
 
-RADIUS = Distance(km=6378)
+RADIUS = Distance(km=EARTH_EQUATORIAL_RADIUS_KM)
+
 
 @singledispatch
 def distance_to_horizon(height):
@@ -35,4 +37,5 @@ def _(height):
 
 if __name__ == '__main__':
     height = Distance(feet=4583)  # Height of Mont Pelée on the island of Martinique
-    print(distance_to_horizon(height).nm)
+    print(f"From Mont Pelée on Martinique, the distance to "
+          f"the horizon is {distance_to_horizon(height).nm:.2f} nautical miles")
