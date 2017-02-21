@@ -6,3 +6,4 @@ from .lazyproperty import lazyproperty
 from .pairwise import pairwise
 from .timesince import timesince, timeuntil
 from .read_special import read_special
+from .states_and_provinces import *

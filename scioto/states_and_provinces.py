@@ -1,5 +1,7 @@
 """ Lists of states and Canadian provinces, with abbreviations."""
 
+__all__ = ['US_STATES', 'CANADIAN_PROVINCES', 'VALID_STATES', 'STATE_ABBREVIATIONS']
+
 US_STATES = (
     ('AL', 'Alabama'),
     ('AK', 'Alaska'),
