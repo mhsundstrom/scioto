@@ -3,6 +3,7 @@ from .great_circle import great_circle
 from .grouper import grouper
 from .horizon import distance_to_horizon
 from .lazyproperty import lazyproperty
+from .structure import Structure
 from .pairwise import pairwise
 from .timesince import timesince, timeuntil
 from .read_special import read_special
