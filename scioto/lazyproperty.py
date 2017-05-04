@@ -1,4 +1,9 @@
-"""See Python Cookbook, Section 8.10, page 267."""
+"""See the Python Cookbook, Section 8.10, page 267.,
+    "Using Lazily Computed Properties".
+
+    This defines a read-only attribute as a property
+    that gets computed once only.
+"""
 
 class lazyproperty:
     def __init__(self, func):

@@ -8,11 +8,12 @@
 """
 from math import radians, cos, sin, sqrt, atan
 
+from .constants import EARTH_EQUATORIAL_RADIUS_KM
 from .distance import Distance
 
 
 def great_circle(lat1, lon1, lat2, lon2):
-    α = 6378.14  # Equatorial radius, kilometers.
+    α = EARTH_EQUATORIAL_RADIUS_KM
     𝑓 = 1 / 298.257  # Flattening of the Earth.
     φ1, L1, φ2, L2 = map(radians, (lat1, lon1, lat2, lon2))
     F = (φ1 + φ2) / 2
@@ -38,3 +39,5 @@ def great_circle(lat1, lon1, lat2, lon2):
     return Distance(km=D * (
         1 + 𝑓 * H1 * sinF * sinF * cosG * cosG -
         𝑓 * H2 * cosF * cosF * sinG * sinG))
+
+

@@ -27,8 +27,8 @@ def timesince(when, other=None, reversed=False):
         pairs = pairs[:2]
     if diff.total_hours() > 1 and pairs[-1][1].startswith('second'):
         pairs = pairs[:1]
-    # return ', '.join(f"{value} {a}" for value, a in pairs)
-    return ', '.join("{} {}".format(value, a) for value, a in pairs)
+    return ', '.join(f"{value} {a}" for value, a in pairs)
+
 
 def timeuntil(when, other=None, reversed=True):
     return timesince(when, other, reversed)
@@ -41,4 +41,4 @@ def plurals(value, a):
 
 
 if __name__ == '__main__':
-    print(timeuntil(dt.parse('2017-01-11T04:51:18-05:00')))
+    print(timesince(dt.parse('2017-05-03T04:51:18-04:00')))
