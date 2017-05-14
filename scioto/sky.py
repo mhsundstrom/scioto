@@ -3,6 +3,9 @@ import numpy as np
 from scipy.optimize import brentq
 import pendulum as dt
 
+from scioto import pairwise
+
+
 LOADER_DIRECTORY = '~/nb/sky'
 SPICE_KERNEL = 'de421.bsp'
 RISE_SET = ('Rise', 'Set')
@@ -69,3 +72,49 @@ def upcoming_rise_and_set_events():
 
 # upcoming_rise_and_set_events()
 
+
+def calculate_azimuth_event(
+        earth_location: tuple,
+        body_name: str,
+        azimuth: int,
+        starting_time=None,
+        days: int=1):
+
+    # Load everything
+    load = Loader(LOADER_DIRECTORY)
+    planets = load(SPICE_KERNEL)
+    earth = planets['earth']
+    where = earth + Topos(*earth_location)
+    body = planets[body_name]
+    ts = load.timescale()
+
+    calculated_altitude = None  # Storage for the altitude we wish to return
+
+    def get_azimuth(time):
+        # For use with brentq below.
+        nonlocal calculated_altitude
+
+        if not isinstance(time, Time):
+            time = ts.tt(jd=time)
+        calculated_altitude, az, _ = where.at(time).observe(body).apparent().altaz('standard')
+        return az._degrees - azimuth
+
+    tt = ts.now().tt if starting_time is None else starting_time
+    jd = ts.tt(jd=np.linspace(tt, tt + 1.2, 25))  # TODO good enough?
+    _, az, _ = where.at(jd).observe(body).apparent().altaz('standard')
+    for a, b in pairwise(zip(az._degrees, jd.tt)):
+        aza, azb = a[0], b[0]
+        if aza > azb:
+            azb += 360
+        if aza <= azimuth <= azb:
+            t = ts.tt(jd=brentq(get_azimuth, a[1], b[1]))
+            return t, calculated_altitude
+    raise ValueError(f"Can't find azimuth={azimuth}")
+
+
+where = ('40 N', '83 W')
+azimuth = 180
+for name in ('sun', 'moon', 'mercury', 'venus', 'mars'):
+    t, alt = calculate_azimuth_event(where, name, azimuth=azimuth)
+    t = dt.Pendulum.instance(t.utc_datetime()).in_tz('local')
+    print(f"{name.title():8} {t:%H:%M %a %-d %b} At {azimuth}: {alt}")
