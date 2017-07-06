@@ -3,3 +3,5 @@ scioto.egg-info/
 *.pyc
 build/
 dist/
+Sun-Minute-by-Minute.pickle
+
