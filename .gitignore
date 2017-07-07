@@ -5,4 +5,4 @@ build/
 dist/
 Sun-Minute-by-Minute.pickle
 Horizon-Events.pickle
-
+.ipynb_checkpoints/
