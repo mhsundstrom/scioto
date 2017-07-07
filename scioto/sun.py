@@ -35,8 +35,10 @@ where = planets['earth'] + Topos(latitude_degrees=latitude,
 
 
 # TODO Add a call for a specific day that returns rise, set, day length, both azimuths
-# tODO a call that builds a calendar of rise/set for a month or a year, text or html,
-# similar to the features in calendar.
+# TODO a call that builds a calendar of rise/set for a month or a year, text or html,
+# TODO generate the pickle files somewhere else?
+
+__all__ = ['load_sun', 'load_events']
 
 
 @lru_cache(maxsize=1)
@@ -172,14 +174,14 @@ def generate_one_year(path):
 
 
 def create_minute_by_minute():
-    """Only need to do this once"""
+    """Only need to do this once. This file is about 25.8 MB"""
     SUN_PICKLE.parent.mkdir(exist_ok=True, parents=True)
     generate_one_year(SUN_PICKLE)
     print(f"{SUN_PICKLE!s}: {SUN_PICKLE.stat().st_size:,} bytes.")
 
 
 def create_horizon_events():
-    data = load_sun_positions()
+    data = load_sun().data
     events = []
     for a, b in pairwise(data):
         # Check for sunrise and sunset
