@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='scioto',
-    version='2017.707.2',
+    version='2017.707.3',
     description='Miscellaneous useful functions',
     author='Mark Sundstrom',
     author_email='mark@mhsundstrom.com',

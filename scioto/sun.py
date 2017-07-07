@@ -20,9 +20,9 @@ import pytz
 from scioto import pairwise
 
 
-HERE = Path(__file__).parent
-SUN_PICKLE = HERE / 'Sun-Minute-by-Minute.pickle'
-HORIZON_EVENTS = HERE / 'Horizon-Events.pickle'
+BASE_FOLDER = Path('~/.scioto').expanduser()  # TODO Need a better choice
+SUN_PICKLE = BASE_FOLDER / 'Sun-Minute-by-Minute.pickle'
+HORIZON_EVENTS = BASE_FOLDER / 'Horizon-Events.pickle'
 TWILIGHT = -6
 
 
