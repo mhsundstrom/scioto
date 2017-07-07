@@ -13,6 +13,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import lru_cache
 from bisect import bisect_right
 from collections import UserList
+import time
 
 from skyfield.api import Loader, Topos
 import pytz
@@ -23,15 +24,6 @@ HERE = Path(__file__).parent
 SUN_PICKLE = HERE / 'Sun-Minute-by-Minute.pickle'
 HORIZON_EVENTS = HERE / 'Horizon-Events.pickle'
 TWILIGHT = -6
-
-loader = Loader(os.environ['SKYFIELD_LOADER_DIRECTORY'])
-planets = loader(os.getenv('SKYFIELD_SPICE_KERNEL', 'de421.bsp'))
-ts = loader.timescale()
-latitude, longitude, elevation = map(float, os.environ['HOME_LOCATION'].split(','))
-tz = pytz.timezone('US/Eastern')  # TODO generalize this a bit
-where = planets['earth'] + Topos(latitude_degrees=latitude,
-                                 longitude_degrees=longitude,
-                                 elevation_m=elevation)
 
 
 # TODO Add a call for a specific day that returns rise, set, day length, both azimuths
@@ -132,7 +124,7 @@ class Event:
         return "{0.date:%a %d %b %H:%M} {0.name} {0.az}°".format(self)
 
 
-def position(jd, alt, az):
+def position(jd, alt, az, tz):
     """Returns a convenient tuple for the calculated Sun position."""
     date = jd.astimezone(tz=tz)
     return date.month, date.day, date.hour, date.minute, round(alt, 2), round(az, 2)
@@ -140,15 +132,25 @@ def position(jd, alt, az):
 
 def compute_positions_for_date(date):
     """Calculate the position of the Sun for every minute of the specified date."""
+    # Set up Skyfield.
+    loader = Loader(os.environ['SKYFIELD_LOADER_DIRECTORY'])
+    planets = loader(os.getenv('SKYFIELD_SPICE_KERNEL', 'de421.bsp'))
+    ts = loader.timescale()
+    latitude, longitude, elevation = map(float, os.environ['HOME_LOCATION'].split(','))
+    tz = pytz.timezone('US/Eastern')  # TODO generalize this a bit
+    where = planets['earth'] + Topos(latitude_degrees=latitude,
+                                     longitude_degrees=longitude,
+                                     elevation_m=elevation)
+
     every_minute = ts.utc(date.year, date.month, date.day, 0, range(1440))
     alt, az, _ = where.at(every_minute).observe(planets['sun']).apparent().altaz()
     return [
-        position(jd, alt, az)
+        position(jd, alt, az, tz)
         for jd, alt, az in zip(every_minute, alt.degrees, az.degrees)
     ]
 
 
-def generate_one_year(path):
+def create_sun_and_event_data():
     """
     Compute Sun locations for every minute over an entire year.
     Use `concurrent.futures` to calculate these days in parallel;
@@ -156,11 +158,14 @@ def generate_one_year(path):
 
     We calculate for a leap year so that the resulting table is
     useful for any year.
+
+    Most recently it took 62.8 seconds to calculate the minute-by-minute data.
     """
     date = datetime.date(2016, 1, 1)
     one_year_later = date.replace(year=date.year + 1)
     fs = []
     results = []
+    beginning = time.perf_counter()
     with ProcessPoolExecutor() as ex:
         while date < one_year_later:
             fs.append(ex.submit(compute_positions_for_date, date))
@@ -170,17 +175,11 @@ def generate_one_year(path):
             results.extend(future.result())
             print(f"{counter:3}. {len(results):,}")
     results.sort()
-    path.write_bytes(pickle.dumps(results, pickle.HIGHEST_PROTOCOL))
-
-
-def create_minute_by_minute():
-    """Only need to do this once. This file is about 25.8 MB"""
-    SUN_PICKLE.parent.mkdir(exist_ok=True, parents=True)
-    generate_one_year(SUN_PICKLE)
+    SUN_PICKLE.write_bytes(pickle.dumps(results, pickle.HIGHEST_PROTOCOL))
     print(f"{SUN_PICKLE!s}: {SUN_PICKLE.stat().st_size:,} bytes.")
+    print(f"Elapsed time {time.perf_counter() - beginning:.1f} seconds")
 
-
-def create_horizon_events():
+    # Now load the just-created file and get the sunrise, sunset and twilight events.
     data = load_sun().data
     events = []
     for a, b in pairwise(data):
@@ -211,9 +210,8 @@ def create_horizon_events():
 
 
 if __name__ == '__main__':
-    # create_minute_by_minute
-    # create_horizon_events()
+    # create_sun_and_event_data()  # Only needs to be done once.
 
-    events = load_events()
-    for ev in events.today():
+    print(load_sun().now())
+    for ev in load_events().today():
         print(ev)
