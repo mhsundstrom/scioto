@@ -62,7 +62,6 @@ def observe(time, where, body, ts, field, offset):
     return value._degrees - offset
 
 
-
 def upcoming_rise_and_set_events():
     events = []
     where = ('40 N', '83 W')
