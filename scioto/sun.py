@@ -17,7 +17,7 @@ import time
 
 from skyfield.api import Loader, Topos
 import pytz
-from scioto import pairwise
+from . import pairwise
 
 
 BASE_FOLDER = Path('~/.scioto').expanduser()  # TODO Need a better choice
@@ -42,10 +42,14 @@ def load_sun():
 @lru_cache(maxsize=1)
 def load_events():
     assert HORIZON_EVENTS.exists(), f"You must create {HORIZON_EVENTS.name} first!"
-    return Events(pickle.loads(HORIZON_EVENTS.read_bytes()))
+    return SunEvents(pickle.loads(HORIZON_EVENTS.read_bytes()))
 
 
 class Position:
+    """
+    Wraps the Sun position tuple into a friendlier format
+    that looks better both on the command line and in the Notebook.
+    """
     def __init__(self, value, year=None):
         if year is None:
             year = datetime.date.today().year
@@ -67,34 +71,50 @@ class Position:
 
 class Sun(UserList):
     """
-    Wraps the list of sun positions with a handy class
+    Minute-by-minute positions of the Sun for an entire year.
+
+    The position for each minute is stored as a tuple:
+        (month, day, hour, minute, altitude, azimuth)
+
+    now() return the tuple associated with the current time.
+
+    at(*args) searches for the specified tuple.
     """
-    def __str__(self):
-        return "Minute-by-minute positions of the Sun for an entire year."
+    def __repr__(self):
+        return f"<Sun: {len(self.data):,} minute-by-minute positions>"
 
     def __getitem__(self, index):
-        """Wraps a sun position in a more friendly class than the original tuple"""
+        """Returns the Position at the specified index"""
         return Position(self.data[index])
 
     def at(self, *args):
+        """
+        Returns the `Position` of the Sun at a specified time. You can
+        use up to 4 arguments, depending on how close you want to specify.
+        """
         index = bisect_right(self.data, tuple(args))
         if index:
             return self[index-1]
         raise ValueError
 
     def now(self):
+        """Return the `Position` of the Sun at the current time"""
         date = datetime.datetime.now()
         return self.at(date.month, date.day, date.hour, date.minute)
 
 
-class Events(UserList):
+class SunEvents(UserList):
+    """
+    A list of sunrise, sunset, and civil twilight events for the entire year.
+    """
     def __repr__(self):
-        return f"{len(self):,} events"
+        return f"<Sun: {len(self):,} Events>"
 
-    def at(self, date):
-        if isinstance(date, tuple):
-            year = datetime.date.today().year
-            date = datetime.date(year, *date)
+    def at(self, *args):
+        index = bisect_right(self.data, tuple(args))
+        return Event(self[index])
+
+    def on_date(self, date):
         key = (date.month, date.day)
         index = bisect_right(self.data, key)
         return [
@@ -104,24 +124,52 @@ class Events(UserList):
         ]
 
     def today(self):
+        """Returns a list of the events for the current date"""
         date = datetime.date.today()
         key = (date.month, date.day)
         index = bisect_right(self.data, key)
-        return [
+        return DayEvents([
             Event(value, date.year)
             for value in self[index:]
             if value[:2] == key
-        ]
+        ])
+
+
+class DayEvents(UserList):
+    """Wraps all events for a given day."""
+    def _repr_html_(self):
+        s = []
+        a = s.append
+        a(f"<h2>Sun Events on {self[0].date:%A, %-d %B %Y}</h2>")
+        a(f"<ul>")
+        for ev in self:
+            a(f"<li>{ev!s}</li>")
+        a("</ul>")
+        return ''.join(s)
 
 
 class Event:
-    def __init__(self, value, year):
+    def __init__(self, value, year=None):
+        if year is None:
+            year = datetime.date.today().year
         self.date = datetime.datetime(year, *value[:4])
         self.name = value[4]
         self.az = value[5]
 
     def __repr__(self):
-        return "{0.date:%a %d %b %H:%M} {0.name} {0.az}°".format(self)
+        return f"{self.date:%a %d %b %H:%M} {self.name} {self.az}°"
+
+    def __str__(self):
+        if self.name in ('Rise', 'Set'):  # suppress azimuth for twilight events
+            az = f"@{self.az}°"
+        else:
+            az = ''
+        return f"{self.date:%-H:%M} {self.name} {az}"
+
+
+# The functions below are for generating the position and events files
+# and won't normally be needed except to regenerate the files, perhaps
+# for a new geographic location.
 
 
 def position(jd, alt, az, tz):
@@ -159,9 +207,12 @@ def create_sun_and_event_data():
     We calculate for a leap year so that the resulting table is
     useful for any year.
 
-    Most recently it took 62.8 seconds to calculate the minute-by-minute data.
+    Most recently it took 53.8 seconds to calculate the minute-by-minute data.
+
+    My testing shows the the difference between doing this for a leap year
+    and a non-leap year is minimal.
     """
-    date = datetime.date(2016, 1, 1)
+    date = datetime.date.today().replace(month=1, day=1)
     one_year_later = date.replace(year=date.year + 1)
     fs = []
     results = []

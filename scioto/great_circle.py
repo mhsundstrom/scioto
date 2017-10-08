@@ -32,7 +32,7 @@ def great_circle(lat1, lon1, lat2, lon2):
     try:
         R = sqrt(S * C) / ω
     except ZeroDivisionError:
-        return 0
+        return Distance(km=0)
     D = 2 * ω * α
     H1 = (3 * R - 1) / (2 * C)
     H2 = (3 * R + 1) / (2 * S)
