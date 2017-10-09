@@ -29,7 +29,7 @@ TWILIGHT = -6
 
 # TODO Add a call for a specific day that returns rise, set, day length, both azimuths
 # TODO a call that builds a calendar of rise/set for a month or a year, text or html,
-# TODO generate the pickle files somewhere else?
+# TODO generate the json files somewhere else?
 
 __all__ = ['load_sun', 'load_events']
 
@@ -37,7 +37,8 @@ __all__ = ['load_sun', 'load_events']
 @lru_cache(maxsize=1)
 def load_sun():
     assert SUN_POSITION.exists(), f"You must create {SUN_POSITION.name} first!"
-    return Sun(json.loads(SUN_POSITION.read_text()))
+    data = json.loads(SUN_POSITION.read_text())
+    return Sun(**data)
 
 
 @lru_cache(maxsize=1)
@@ -48,15 +49,16 @@ def load_events():
 
 class Position:
     """
-    Wraps the Sun position tuple into a friendlier format
+    Wraps the Sun position info into a friendlier format
     that looks better both on the command line and in the Notebook.
     """
-    def __init__(self, value, year=None):
+    def __init__(self, value, index, year=None):
         if year is None:
             year = datetime.date.today().year
         self.date = datetime.datetime(year, *value[:4])
         self.alt = value[4]
         self.az = value[5]
+        self.index = index
 
     def __repr__(self):
         return "{0.date:%A %-d %b %-H:%M} Alt={0.alt:.0f}° Az={0.az:.0f}°".format(self)
@@ -80,14 +82,21 @@ class Sun(UserList):
 
     now() return the tuple associated with the current time.
 
-    at(*args) searches for the specified tuple.
+    at(*args) searches for the specified info.
     """
+    def __init__(self, **kwargs):
+        super().__init__(kwargs.pop('positions'))
+        self.latitude = kwargs.pop('latitude')
+        self.longitude = kwargs.pop('longitude')
+        self.elevation = kwargs.pop('elevation')
+        self.tz = pytz.timezone(kwargs.pop('tz'))
+
     def __repr__(self):
-        return f"<Sun: {len(self.data):,} minute-by-minute positions>"
+        return "<Sun positions for Lat {0.latitude:.2f}°, Lon {0.longitude:.2f}°>".format(self)
 
     def __getitem__(self, index):
         """Returns the Position at the specified index"""
-        return Position(self.data[index])
+        return Position(self.data[index], index)
 
     def at(self, *args):
         """
@@ -97,7 +106,7 @@ class Sun(UserList):
         """
         index = bisect_right(self.data, list(args))
         if index:
-            return self[index-1]
+            return self[index]
         raise ValueError
 
     def now(self):
@@ -170,9 +179,11 @@ class Event:
         return f"{self.date:%-H:%M} {self.name} {az}"
 
 
-# The functions below are for generating the position and events files
-# and won't normally be needed except to regenerate the files, perhaps
-# for a new geographic location.
+"""
+The functions below are for generating the position and events files
+and won't normally be needed except to regenerate the files, perhaps
+for a new geographic location.
+"""
 
 
 def position(jd, alt, az, tz):
@@ -199,7 +210,7 @@ def compute_positions_for_date(date, *, latitude, longitude, elevation=0, tz):
     ]
 
 
-def _create_sun_minute_by_minute(*, latitude, longitude, elevation, tz):
+def create_sun_minute_by_minute(*, latitude, longitude, elevation, tz):
     """
     Compute Sun locations for every minute over an entire year.
     Use `concurrent.futures` to calculate these days in parallel;
@@ -230,12 +241,19 @@ def _create_sun_minute_by_minute(*, latitude, longitude, elevation, tz):
             results.extend(future.result())
             print(f"{counter:3}. {len(results):,}")
     results.sort()
-    SUN_POSITION.write_text(json.dumps(results))
+    data = {
+        'latitude': latitude,
+        'longitude': longitude,
+        'elevation': elevation,
+        'tz': tz.zone,
+        'positions': results,
+    }
+    SUN_POSITION.write_text(json.dumps(data))
     print(f"{SUN_POSITION!s}: {SUN_POSITION.stat().st_size:,} bytes.")
     print(f"Elapsed time {time.perf_counter() - beginning:.1f} seconds")
 
 
-def _create_horizon_event_data():
+def create_horizon_event_data():
     """Sunrise, sunset, and civil twilight times"""
     data = load_sun().data
     events = []
@@ -266,11 +284,11 @@ def _create_horizon_event_data():
     print(len(events), "horizon events")
 
 
-def _build_my_sun_position_data():
+def build_my_sun_position_data():
     """Use my home location and time zone to build the minute-by-minute Sun data."""
     latitude, longitude, elevation = map(float, os.environ['HOME_LOCATION'].split(','))
     tz = pytz.timezone('US/Eastern')
-    _create_sun_minute_by_minute(
+    create_sun_minute_by_minute(
         latitude=latitude, longitude=longitude,
         elevation=elevation, tz=tz)
 
@@ -283,7 +301,6 @@ def main():
 
 
 if __name__ == '__main__':
-    # _build_my_sun_position_data()  # only needed once
-    # _create_horizon_event_data()  # only needed once
+    # build_my_sun_position_data()  # only needed once
+    # create_horizon_event_data()  # only needed once
     main()
-
