@@ -2,12 +2,12 @@ from setuptools import setup
 
 setup(
     name='scioto',
-    version='2017.1008.0',
+    version='2017.1012.0',
     description='Miscellaneous useful functions',
     author='Mark Sundstrom',
     author_email='mark@mhsundstrom.com',
     license='MIT',
     url='http://mhsundstrom.com/',
-    packages=['scioto'],
+    packages=['scioto', 'sky'],
     include_package_data=True,
 )
