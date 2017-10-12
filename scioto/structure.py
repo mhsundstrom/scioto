@@ -8,6 +8,7 @@
     are just copying arguments into attributes.
 """
 
+
 class Structure:
     """ Structure has a list of expected arguments, in
         _fields. These can be positional or keyword arguments.

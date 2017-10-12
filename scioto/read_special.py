@@ -7,6 +7,7 @@
 import os
 from pathlib import Path
 
+
 def read_special(filename):
     folder = Path(os.environ['READ_SPECIAL'])
     return (folder / filename).read_text().strip()

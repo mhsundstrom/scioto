@@ -31,7 +31,7 @@ def distance_to_horizon(height):
 
 @distance_to_horizon.register(int)
 @distance_to_horizon.register(float)
-def _(height):
+def int_or_float_distance(height):
     return distance_to_horizon(Distance(feet=height))
 
 

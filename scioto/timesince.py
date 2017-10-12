@@ -41,4 +41,4 @@ def plurals(value, a):
 
 
 if __name__ == '__main__':
-    print(timesince(dt.parse('2017-05-03T04:51:18-04:00')))
+    print(timesince(dt.parse('2017-08-21T13:25:32-05:00')))
