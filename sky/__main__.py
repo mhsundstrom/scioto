@@ -2,6 +2,8 @@ import astropy.units as u
 
 from . import Sky
 from .api import Phase, Motions
+from scioto import timesince, timeuntil
+
 
 MOON_MEAN_DISTANCE = 238_855
 MOON_MINIMUM_PERIGEE = 221_504
@@ -15,14 +17,13 @@ INT_TO_PHASE = {
     3: Phase.LastQuarter,
 }
 
-mph = u.imperial.mile / u.hour
-
 
 def moon():
     """Summary of the current position of the Moon."""
     sky = Sky()
     now = sky.now()
-    print(f"The Moon at {now.astimezone(sky.tz)}")
+    fmt = '%A, %-d %B at %H:%M:%S %Z'
+    print(f"The Moon at {now.astimezone(sky.tz):{fmt}}")
 
     moon_apparent = sky.home.at(now).observe(sky.moon).apparent()
     ra, dec, _ = moon_apparent.radec(epoch='date')
@@ -32,7 +33,7 @@ def moon():
     centered = sky.earth.at(now).observe(sky.moon)
     distance = centered.distance().to(u.imperial.mile)
     distance_percentage = (distance.value - MOON_MINIMUM_PERIGEE) / (MOON_MAXIMUM_APOGEE - MOON_MINIMUM_PERIGEE)
-    speed = centered.speed().to(mph)
+    speed = centered.speed().to(Sky.mph)
     print(f"{distance:,.0f}, [{distance_percentage:.2%}], {speed:,.0f}")
 
     alt, az, _ = moon_apparent.altaz('standard')
@@ -53,22 +54,17 @@ def moon():
     previous_phase = INT_TO_PHASE[(ip - 1) % 4]
 
     phase_date = sky.find_moon_phase(now.tt, Motions.Previous, previous_phase)
-    print(f"{previous_phase:18} {phase_date.astimezone(sky.tz):%a %-d %b at %H:%M:%S %Z},")
+    print(f"{previous_phase:18} {phase_date.astimezone(sky.tz):{fmt}}", end=', ')
+    print(f"{timesince(phase_date.astimezone(sky.tz))} ago")
+
+    if previous_phase == Phase.NewMoon:
+        phase_age = 24 * (sky.now() - phase_date)
+        if phase_age < 72:
+            print(f"The Moon is {phase_age:.0f} hours old.")
 
     phase_date = sky.find_moon_phase(now.tt, Motions.Next, next_phase)
-    print(f"{next_phase:18} {phase_date.astimezone(sky.tz):%a %-d %b at %H:%M:%S %Z}")
-
-
-
-
-
-
-
-
-
-
-
-
+    print(f"{next_phase:18} {phase_date.astimezone(sky.tz):{fmt}}", end=', ')
+    print(f"in {timeuntil(phase_date.astimezone(sky.tz))}")
 
 
 moon()

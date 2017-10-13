@@ -9,6 +9,8 @@ from enum import Enum
 from skyfield.api import Loader, Topos, Time
 import tzlocal
 import astropy.units as u
+import numpy as np
+from scipy.optimize import brentq
 
 
 SKYFIELD_CONFIG = Path.home() / 'skyfield-config.ini'
@@ -78,6 +80,9 @@ class Sky:
     It also includes some useful methods, e.g. Phase of the Moon, and Seasons.
 
     """
+
+    mph = u.imperial.mile / u.hour  # Often-used definition
+
     def __init__(self):
         self.parser = ConfigParser(allow_no_value=True)
         self.parser.read(SKYFIELD_CONFIG)
@@ -126,6 +131,39 @@ class Sky:
         d = t.tt + 365.25 * angle_to_cover / twopi
         return self.ts.tt(jd=newton(f, d, d + hour))
 
+    def generate_horizon_events(self, name, tt=None, days: int = 1, altitude: int = 0):
+        """
+        Generates rise and set events (or twilight)
+        """
+        if tt is None:
+            tt = self.now().tt
+
+        hours = 24 * days + 1  # Space our positions every hour
+        jd = self.ts.tt(jd=np.linspace(tt, tt + days, hours))
+
+        body = self.planets[name]
+        alt, *_ = self.home.at(jd).observe(body).apparent().altaz('standard')
+
+        # Is the next event a rising or a setting.
+        current_altitude = alt._degrees[0]
+        which_kind = 1 if current_altitude > altitude else 0
+        change_dates = jd.tt[np.ediff1d(np.sign(alt._degrees - altitude), to_end=0) != 0]
+        args = (body, 'alt', altitude)
+
+        for date in change_dates:
+            t = self.ts.tt(jd=brentq(self.get_alt_or_az, date, date + hour, args=args))
+            alt, az, _ = self.home.at(jd=t).observe(body).apparent().altaz('standard')
+            yield (t, which_kind, az)
+            which_kind = 1 - which_kind
+
+    def get_alt_or_az(self, time, body, field, offset):
+        """Called by `brentq` as it iterates to a solution"""
+        if not isinstance(time, Time):
+            time = self.ts.tt(jd=time)
+        alt, az, _ = self.home.at(time).observe(body).apparent().altaz('standard')
+        value = alt if field == 'alt' else az
+        return value._degrees - offset
+
 
 def newton(f, x0, x1, precision=default_newton_precision):
     """
@@ -160,7 +198,7 @@ def calc_all_seasons(sky):
             yield MotionEvent(motion, which, sky.season(when, motion.value, which.value))
 
 
-if __name__ == '__main__':
+def moon_phase_and_season_example():
     sky = Sky()
     fmt = '%a, %d %b %Y at %H:%M %Z'
     print("Phases of the Moon")
@@ -170,3 +208,13 @@ if __name__ == '__main__':
     print("Seasons")
     for event in sorted(calc_all_seasons(sky), key=attrgetter('tt.tt')):
         print(f"{event.which:18} {event.tt.astimezone(sky.tz):{fmt}}")
+
+
+if __name__ == '__main__':
+    # moon_phase_and_season_example()
+
+    sky = Sky()
+    RISE_SET = ('Rise', 'Set')
+    for t, kind, az in sky.generate_horizon_events('sun', days=7):
+        time = t.astimezone(sky.tz)
+        print(f"{RISE_SET[kind]:4} {time:%d %a %b %H:%M %Z} {az.degrees:3.0f}°")
