@@ -6,7 +6,7 @@ from operator import attrgetter
 from math import pi
 from enum import Enum
 
-from skyfield.api import Loader, Topos, Time
+from skyfield.api import Loader, Topos, Time, Star
 import tzlocal
 import astropy.units as u
 import numpy as np
@@ -96,6 +96,16 @@ class Sky:
         self.earth = self.planets['earth']
         self.sun = self.planets['sun']
         self.moon = self.planets['moon']
+        # Load our stars and asterisms of interest
+        self.stars = {}
+        for name, value in self.parser['stars'].items():
+            if value is None:
+                continue
+            self.stars[name.title()] = load_star(value)
+        self.asterisms = {
+            name.title(): load_star(value)
+            for name, value in self.parser['asterisms'].items()
+        }
 
     def find_moon_phase(self, tt, motion, target):
         """
@@ -131,9 +141,9 @@ class Sky:
         d = t.tt + 365.25 * angle_to_cover / twopi
         return self.ts.tt(jd=newton(f, d, d + hour))
 
-    def generate_horizon_events(self, name, tt=None, days: int = 1, altitude: int = 0):
+    def generate_horizon_events(self, name_or_body, tt=None, days: int = 1, altitude: int = 0):
         """
-        Generates rise and set events (or twilight)
+        Generates rise and set events (or twilight, using a non-zero altitude)
         """
         if tt is None:
             tt = self.now().tt
@@ -141,7 +151,10 @@ class Sky:
         hours = 24 * days + 1  # Space our positions every hour
         jd = self.ts.tt(jd=np.linspace(tt, tt + days, hours))
 
-        body = self.planets[name]
+        if isinstance(name_or_body, str):
+            body = self.planets[name_or_body]
+        else:
+            body = name_or_body
         alt, *_ = self.home.at(jd).observe(body).apparent().altaz('standard')
 
         # Is the next event a rising or a setting.
@@ -163,6 +176,15 @@ class Sky:
         alt, az, _ = self.home.at(time).observe(body).apparent().altaz('standard')
         value = alt if field == 'alt' else az
         return value._degrees - offset
+
+
+def load_star(value):
+    ra_str, dec_str = value.split(',', 1)
+    h, m, s = map(float, ra_str.split(':'))
+    ra = h + m / 60 + s / 3600
+    d, m, s = map(float, dec_str.split(':'))
+    dec = d + m / 60 + s / 3600
+    return Star(ra_hours=ra, dec_degrees=dec)
 
 
 def newton(f, x0, x1, precision=default_newton_precision):
@@ -211,10 +233,10 @@ def moon_phase_and_season_example():
 
 
 if __name__ == '__main__':
-    # moon_phase_and_season_example()
+    moon_phase_and_season_example()
 
-    sky = Sky()
-    RISE_SET = ('Rise', 'Set')
-    for t, kind, az in sky.generate_horizon_events('sun', days=7):
-        time = t.astimezone(sky.tz)
-        print(f"{RISE_SET[kind]:4} {time:%d %a %b %H:%M %Z} {az.degrees:3.0f}°")
+    # sky = Sky()
+    # RISE_SET = ('Rise', 'Set')
+    # for t, kind, az in sky.generate_horizon_events('sun', days=7):
+    #     time = t.astimezone(sky.tz)
+    #     print(f"{RISE_SET[kind]:4} {time:%d %a %b %H:%M %Z} {az.degrees:3.0f}°")
