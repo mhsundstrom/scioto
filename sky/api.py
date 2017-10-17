@@ -85,7 +85,10 @@ class Sky:
 
     def __init__(self, latitude=None, longitude=None, elevation=None):
         # TODO: handle the latlon info
-        self.parser = ConfigParser(allow_no_value=True)
+        self.parser = ConfigParser(
+            allow_no_value=True,
+            converters={'star': load_star}
+        )
         self.parser.read(SKYFIELD_CONFIG)
         self.loader = Loader(self.parser.get('skyfield', 'loader_directory'))
         self.planets = self.loader(self.parser.get('skyfield', 'spice_kernel'))
