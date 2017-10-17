@@ -6,7 +6,7 @@ from operator import attrgetter
 from math import pi
 from enum import Enum
 
-from skyfield.api import Loader, Topos, Time, Star
+from skyfield.api import Loader, Topos, Time, Star, Angle
 import tzlocal
 import astropy.units as u
 import numpy as np
@@ -83,7 +83,8 @@ class Sky:
 
     mph = u.imperial.mile / u.hour  # Often-used definition
 
-    def __init__(self):
+    def __init__(self, latitude=None, longitude=None, elevation=None):
+        # TODO: handle the latlon info
         self.parser = ConfigParser(allow_no_value=True)
         self.parser.read(SKYFIELD_CONFIG)
         self.loader = Loader(self.parser.get('skyfield', 'loader_directory'))
@@ -106,6 +107,20 @@ class Sky:
             name.title(): load_star(value)
             for name, value in self.parser['asterisms'].items()
         }
+
+    def local_sidereal_time(self, when=None):
+        """Calculate the Local Sidereal Time"""
+        # TODO: Not sure if `positives[-1]` is safe/reliable for recovering latlon.
+        if when is None:
+            when = self.now()
+        return Angle(hours=(when.gmst + self.home.positives[-1].longitude._hours) % 24)
+
+    def lst_str(self, when=None):
+        """Local Sidereal Time as a nicely formatted string"""
+        # TODO: The superscripts don't look great in a Jupyter notebook.
+        lst = self.local_sidereal_time(when)
+        sign, hh, mm, ss = lst.signed_hms()
+        return f"{hh:.0f}ʰ{mm:.0f}ᵐ{ss:.0f}ˢ"
 
     def find_moon_phase(self, tt, motion, target):
         """
@@ -233,7 +248,8 @@ def moon_phase_and_season_example():
 
 
 if __name__ == '__main__':
-    moon_phase_and_season_example()
+    print(f"Local Sidereal Time: {Sky().lst_str()}")
+    # moon_phase_and_season_example()
 
     # sky = Sky()
     # RISE_SET = ('Rise', 'Set')
