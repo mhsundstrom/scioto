@@ -24,6 +24,7 @@ def moon():
     now = sky.now()
     fmt = '%A, %-d %B at %H:%M:%S %Z'
     print(f"The Moon at {now.astimezone(sky.tz):{fmt}}")
+    print("From location:", sky.home.positives[-1])
 
     moon_apparent = sky.home.at(now).observe(sky.moon).apparent()
     ra, dec, _ = moon_apparent.radec(epoch='date')

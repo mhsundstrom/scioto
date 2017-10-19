@@ -111,6 +111,12 @@ class Sky:
             for name, value in self.parser['asterisms'].items()
         }
 
+    def __repr__(self):
+        return str(self.home.positives[-1])
+
+    def _repr_html_(self):
+        return f"<h5>Sky at {self!r}</h5>"
+
     def local_sidereal_time(self, when=None):
         """Calculate the Local Sidereal Time"""
         # TODO: Not sure if `positives[-1]` is safe/reliable for recovering latlon.
@@ -251,7 +257,9 @@ def moon_phase_and_season_example():
 
 
 if __name__ == '__main__':
-    print(f"Local Sidereal Time: {Sky().lst_str()}")
+    sky = Sky()
+    print("Sky:", sky)
+    print(f"Local Sidereal Time: {sky.lst_str()}")
     # moon_phase_and_season_example()
 
     # sky = Sky()
