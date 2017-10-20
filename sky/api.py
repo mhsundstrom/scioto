@@ -14,7 +14,6 @@ from scipy.optimize import brentq
 
 
 SKYFIELD_CONFIG = Path.home() / 'skyfield-config.ini'
-HOME_LOCATION = Path.home() / 'Location.txt'
 
 twopi = pi * 2
 halfpi = pi / 2
@@ -55,14 +54,14 @@ class Season(Enum):
 MotionEvent = namedtuple('MotionEvent', 'motion which tt')
 
 
-def get_home_location(sky):
+def get_home_location(earth, path):
     # TODO we should check env $HOME_LOCATION if this fails.
     location_parser = ConfigParser()
-    with HOME_LOCATION.open() as lines:
+    with path.open() as lines:
         lines = chain(("[location]",), lines)
         location_parser.read_file(lines)
 
-    return sky.planets['earth'] + Topos(
+    return earth + Topos(
         latitude_degrees=location_parser.getfloat('location', 'latitude'),
         longitude_degrees=location_parser.getfloat('location', 'longitude'),
         elevation_m=location_parser.getfloat('location', 'altitude (m)'))
@@ -83,8 +82,8 @@ class Sky:
 
     mph = u.imperial.mile / u.hour  # Often-used definition
 
-    def __init__(self, latitude=None, longitude=None, elevation=None):
-        # TODO: handle the latlon info
+    def __init__(self):
+        # TODO: add arguments to use a different location?
         self.parser = ConfigParser(
             allow_no_value=True,
             converters={'star': load_star}
@@ -92,14 +91,19 @@ class Sky:
         self.parser.read(SKYFIELD_CONFIG)
         self.loader = Loader(self.parser.get('skyfield', 'loader_directory'))
         self.planets = self.loader(self.parser.get('skyfield', 'spice_kernel'))
-        self.ts = self.loader.timescale()
-        self.now = self.ts.now
-        self.tz = tzlocal.get_localzone()
-        self.home = get_home_location(self)
+
         # These are often used, give them a special place.
         self.earth = self.planets['earth']
         self.sun = self.planets['sun']
         self.moon = self.planets['moon']
+
+        self.ts = self.loader.timescale()
+        self.now = self.ts.now
+        self.tz = tzlocal.get_localzone()
+        self.home = get_home_location(
+            self.earth,
+            Path(self.parser.get('skyfield', 'home_location')).expanduser()
+        )
         # Load our stars and asterisms of interest
         self.stars = {}
         for name, value in self.parser['stars'].items():
@@ -203,6 +207,7 @@ class Sky:
 
 
 def load_star(value):
+    """value looks like h:m:s,d:m:s"""
     ra_str, dec_str = value.split(',', 1)
     h, m, s = map(float, ra_str.split(':'))
     ra = h + m / 60 + s / 3600
@@ -260,7 +265,7 @@ if __name__ == '__main__':
     sky = Sky()
     print("Sky:", sky)
     print(f"Local Sidereal Time: {sky.lst_str()}")
-    # moon_phase_and_season_example()
+    moon_phase_and_season_example()
 
     # sky = Sky()
     # RISE_SET = ('Rise', 'Set')
