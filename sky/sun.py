@@ -25,8 +25,6 @@ TWILIGHT = -6
 
 
 # TODO Add a call for a specific day that returns rise, set, day length, both azimuths
-# TODO a call that builds a calendar of rise/set for a month or a year, text or html,
-# TODO generate the json files somewhere else?
 
 __all__ = ['load_sun', 'load_events']
 
@@ -120,8 +118,8 @@ class SunEvents(UserList):
         index = bisect_right(self.data, tuple(args))
         return Event(self[index])
 
-    def on_date(self, month, day):
-        key = [month, day]
+    def on_date(self, date):
+        key = [date.month, date.day]
         index = bisect_right(self.data, key)
         return [
             Event(value, datetime.date.today().year)
@@ -175,8 +173,8 @@ class Event:
 
 """
 The functions below are for generating the position and events files
-and won't normally be needed except to regenerate the files, perhaps
-for a new geographic location.
+and won't normally be needed except to regenerate the files each year, 
+or perhaps for a new geographic location.
 """
 
 
@@ -209,16 +207,13 @@ def create_sun_minute_by_minute(*, latitude, longitude, elevation, tz):
     Use `concurrent.futures` to calculate these days in parallel;
     it speeds up the process a fair amount.
 
-    We calculate for a leap year so that the resulting table is
-    useful for any year.
+    We do this new for each year, because of daylight savings time changes.
 
     Most recently it took 54.5 seconds to calculate the minute-by-minute data.
-
-    My testing shows the the difference between doing this for a leap year
-    and a non-leap year is minimal.
     """
     print(latitude, longitude, elevation, tz)
-    date = datetime.date(year=2020, month=1, day=1)
+    this_year = datetime.date.today().year
+    date = datetime.date(this_year, 1, 1)
     one_year_later = date.replace(year=date.year + 1)
     fs = []
     results = []
