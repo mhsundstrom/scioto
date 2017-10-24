@@ -7,6 +7,7 @@ from math import pi
 from enum import Enum
 
 from skyfield.api import Loader, Topos, Time, Star, Angle
+import pytz
 import tzlocal
 import astropy.units as u
 import numpy as np
@@ -82,8 +83,7 @@ class Sky:
 
     mph = u.imperial.mile / u.hour  # Often-used definition
 
-    def __init__(self):
-        # TODO: add arguments to use a different location?
+    def __init__(self, location=None, timezone=None):
         self.parser = ConfigParser(
             allow_no_value=True,
             converters={'star': load_star}
@@ -99,11 +99,14 @@ class Sky:
 
         self.ts = self.loader.timescale()
         self.now = self.ts.now
-        self.tz = tzlocal.get_localzone()
-        self.home = get_home_location(
-            self.earth,
-            Path(self.parser.get('skyfield', 'home_location')).expanduser()
-        )
+        self.tz = tzlocal.get_localzone() if timezone is None else pytz.timezone(timezone)
+        if location is None:
+            self.home = get_home_location(
+                self.earth,
+                Path(self.parser.get('skyfield', 'home_location')).expanduser()
+            )
+        else:
+            self.home = self.earth + location
         # Load our stars and asterisms of interest
         self.stars = {}
         for name, value in self.parser['stars'].items():
