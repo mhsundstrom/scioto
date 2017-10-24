@@ -15,15 +15,12 @@ from bisect import bisect_right
 from collections import UserList
 import time
 
-from skyfield.api import Loader, Topos
+from skyfield.api import Topos
 import pytz
-from . import pairwise
+from scioto import pairwise
+from . import Sky
 
 
-BASE_FOLDER = Path('~/.scioto').expanduser()  # TODO Need a better choice
-SUN_BASE = 'Sun-Minute-by-Minute'
-SUN_POSITION = BASE_FOLDER / "Sun-Minute-by-Minute.json"
-HORIZON_EVENTS = BASE_FOLDER / 'Horizon-Events.json'
 TWILIGHT = -6
 
 
@@ -36,15 +33,19 @@ __all__ = ['load_sun', 'load_events']
 
 @lru_cache(maxsize=1)
 def load_sun():
-    assert SUN_POSITION.exists(), f"You must create {SUN_POSITION.name} first!"
-    data = json.loads(SUN_POSITION.read_text())
-    return Sun(**data)
+    sky = Sky()
+    sun_position = Path(sky.parser['sun']['sun_position']).expanduser()
+    assert sun_position.exists(), f"You must create {sun_position.name} first!"
+    data = json.loads(sun_position.read_text())
+    return Sun(data)
 
 
 @lru_cache(maxsize=1)
 def load_events():
-    assert HORIZON_EVENTS.exists(), f"You must create {HORIZON_EVENTS.name} first!"
-    return SunEvents(json.loads(HORIZON_EVENTS.read_text()))
+    sky = Sky()
+    horizon_events = Path(sky.parser['sun']['horizon_events']).expanduser()
+    assert horizon_events.exists(), f"You must create {horizon_events.name} first!"
+    return SunEvents(json.loads(horizon_events.read_text()))
 
 
 class Position:
@@ -84,15 +85,8 @@ class Sun(UserList):
 
     at(*args) searches for the specified info.
     """
-    def __init__(self, **kwargs):
-        super().__init__(kwargs.pop('positions'))
-        self.latitude = kwargs.pop('latitude')
-        self.longitude = kwargs.pop('longitude')
-        self.elevation = kwargs.pop('elevation')
-        self.tz = pytz.timezone(kwargs.pop('tz'))
-
     def __repr__(self):
-        return "<Sun positions for Lat {0.latitude:.2f}°, Lon {0.longitude:.2f}°>".format(self)
+        return f"{len(self):,} minute-by-minute Sun positions"
 
     def __getitem__(self, index):
         """Returns the Position at the specified index"""
@@ -194,18 +188,17 @@ def position(jd, alt, az, tz):
 
 def compute_positions_for_date(date, *, latitude, longitude, elevation=0, tz):
     """Calculate the position of the Sun for every minute of the specified date."""
-    # Set up Skyfield.
-    loader = Loader(os.environ['SKYFIELD_LOADER_DIRECTORY'])
-    planets = loader(os.getenv('SKYFIELD_SPICE_KERNEL', 'de421.bsp'))
-    ts = loader.timescale()
-    where = planets['earth'] + Topos(latitude_degrees=latitude,
-                                     longitude_degrees=longitude,
-                                     elevation_m=elevation)
+    topos = Topos(
+        latitude_degrees=latitude,
+        longitude_degrees=longitude,
+        elevation_m=elevation
+    )
+    sky = Sky(location=topos, timezone=tz)
 
-    every_minute = ts.utc(date.year, date.month, date.day, 0, range(1440))
-    alt, az, _ = where.at(every_minute).observe(planets['sun']).apparent().altaz()
+    every_minute = sky.ts.utc(date.year, date.month, date.day, 0, range(1440))
+    alt, az, _ = sky.home.at(every_minute).observe(sky.sun).apparent().altaz('standard')
     return [
-        position(jd, alt, az, tz)
+        position(jd, alt, az, sky.tz)
         for jd, alt, az in zip(every_minute, alt.degrees, az.degrees)
     ]
 
@@ -224,6 +217,7 @@ def create_sun_minute_by_minute(*, latitude, longitude, elevation, tz):
     My testing shows the the difference between doing this for a leap year
     and a non-leap year is minimal.
     """
+    print(latitude, longitude, elevation, tz)
     date = datetime.date(year=2020, month=1, day=1)
     one_year_later = date.replace(year=date.year + 1)
     fs = []
@@ -241,15 +235,10 @@ def create_sun_minute_by_minute(*, latitude, longitude, elevation, tz):
             results.extend(future.result())
             print(f"{counter:3}. {len(results):,}")
     results.sort()
-    data = {
-        'latitude': latitude,
-        'longitude': longitude,
-        'elevation': elevation,
-        'tz': tz.zone,
-        'positions': results,
-    }
-    SUN_POSITION.write_text(json.dumps(data))
-    print(f"{SUN_POSITION!s}: {SUN_POSITION.stat().st_size:,} bytes.")
+    sky = Sky()
+    sun_position = Path(sky.parser['sun']['sun_position']).expanduser()
+    sun_position.write_text(json.dumps(results))
+    print(f"{sun_position!s}: {sun_position.stat().st_size:,} bytes.")
     print(f"Elapsed time {time.perf_counter() - beginning:.1f} seconds")
 
 
@@ -280,17 +269,20 @@ def create_horizon_event_data():
             rec = b[:4] + [name, int(b[-1])]
             events.append(rec)
     events.sort()
-    HORIZON_EVENTS.write_text(json.dumps(events))
+    sky = Sky()
+    horizon_events = Path(sky.parser['sun']['horizon_events']).expanduser()
+    horizon_events.write_text(json.dumps(events))
     print(len(events), "horizon events")
 
 
 def build_my_sun_position_data():
     """Use my home location and time zone to build the minute-by-minute Sun data."""
-    latitude, longitude, elevation = map(float, os.environ['HOME_LOCATION'].split(','))
-    tz = pytz.timezone('US/Eastern')
+    sky = Sky()
     create_sun_minute_by_minute(
-        latitude=latitude, longitude=longitude,
-        elevation=elevation, tz=tz)
+        latitude=sky.topos.latitude.degrees,
+        longitude=sky.topos.longitude.degrees,
+        elevation=sky.topos.elevation.km * 1000,
+        tz=str(sky.tz))
 
 
 def main():

@@ -55,14 +55,14 @@ class Season(Enum):
 MotionEvent = namedtuple('MotionEvent', 'motion which tt')
 
 
-def get_home_location(earth, path):
+def get_home_location(path):
     # TODO we should check env $HOME_LOCATION if this fails.
     location_parser = ConfigParser()
     with path.open() as lines:
         lines = chain(("[location]",), lines)
         location_parser.read_file(lines)
 
-    return earth + Topos(
+    return Topos(
         latitude_degrees=location_parser.getfloat('location', 'latitude'),
         longitude_degrees=location_parser.getfloat('location', 'longitude'),
         elevation_m=location_parser.getfloat('location', 'altitude (m)'))
@@ -83,7 +83,7 @@ class Sky:
 
     mph = u.imperial.mile / u.hour  # Often-used definition
 
-    def __init__(self, location=None, timezone=None):
+    def __init__(self, location: Topos=None, timezone=None):
         self.parser = ConfigParser(
             allow_no_value=True,
             converters={'star': load_star}
@@ -98,15 +98,16 @@ class Sky:
         self.moon = self.planets['moon']
 
         self.ts = self.loader.timescale()
-        self.now = self.ts.now
+        self.now = self.ts.now  # for convenience
         self.tz = tzlocal.get_localzone() if timezone is None else pytz.timezone(timezone)
+
         if location is None:
-            self.home = get_home_location(
-                self.earth,
+            location = get_home_location(
                 Path(self.parser.get('skyfield', 'home_location')).expanduser()
             )
-        else:
-            self.home = self.earth + location
+        self.topos = location
+        self.home = self.earth + location
+
         # Load our stars and asterisms of interest
         self.stars = {}
         for name, value in self.parser['stars'].items():
