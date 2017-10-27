@@ -1,5 +1,9 @@
 """ Handles a simple ephemeris listing from JPL with RA and Dec
     expressed in decimal degrees.
+
+    Each line should look something like:
+         #  date               RA degrees  Dec degrees
+         2017-Dec-01 00:00     177.51139  10.69378
 """
 import datetime
 
